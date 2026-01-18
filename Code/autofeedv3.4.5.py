@@ -1,27 +1,33 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 import sys, os, time
 import random
 import threading
 import math
+
+# Updated Selenium Imports for Selenium 4+
+from selenium import webdriver
 from selenium.webdriver import Chrome, Edge
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import Select
-from selenium.common.exceptions import StaleElementReferenceException
-from selenium.common.exceptions import NoSuchElementException
-from selenium.common.exceptions import WebDriverException
-from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import (
+    TimeoutException,
+    StaleElementReferenceException,
+    NoSuchElementException,
+    WebDriverException,
+    ElementNotInteractableException
+)
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 close = False
 Indez = 0
-
+browser = None  # Global browser variable
 
 class Ui_MainWindow(QtCore.QObject):
 
@@ -31,13 +37,12 @@ class Ui_MainWindow(QtCore.QObject):
     showWidget = QtCore.pyqtSignal(object)
     
     def openContributorWin(self):
-        
         self.showWidget.emit(self.page_2)
         
     def updateContributorWin(self, courseName, contributors):
         _translate = QtCore.QCoreApplication.translate
-        str = "Course (" + courseName + ") has multiple contributors. Select one:" 
-        self.label.setText(_translate("MainWindow", str))
+        str_text = "Course (" + courseName + ") has multiple contributors. Select one:" 
+        self.label.setText(_translate("MainWindow", str_text))
         for con_id in range(len(contributors)-1):
             listWidgetItem = QtWidgets.QListWidgetItem(contributors[con_id].text)
             self.listWidget.addItem(listWidgetItem)
@@ -45,7 +50,6 @@ class Ui_MainWindow(QtCore.QObject):
         self.selectListItem.emit(self.listWidget, 0)         
         
     def hideContributorWin(self):
-        
         self.showWidget.emit(self.page)
         self.listWidget.clear()
         
@@ -98,7 +102,6 @@ class Ui_MainWindow(QtCore.QObject):
         
         #stacked_widget
         self.stackedWidget = QtWidgets.QStackedWidget(self.centralwidget)
-        #self.stackedWidget.setGeometry(QtCore.QRect(170, 50, 461, 401))
         self.stackedWidget.setObjectName("stackedWidget")
         self.stackedWidget.setGeometry(QtCore.QRect(10, 60, 801, 361))
         
@@ -208,7 +211,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.mi_pushButton.setObjectName("pushButton")
         self.stackedWidget.addWidget(self.page_3)
         
-        #Rest of declaration (Status Bar, Menu Bar)
+        #Rest of declaration
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -249,21 +252,17 @@ class Ui_MainWindow(QtCore.QObject):
         self.actionRandom_Gen.toggled.connect(self.onrandomchecked)
         self.actionManual_Input.toggled.connect(self.onmanualchecked)
         self.actionExit.triggered.connect(self.onexit)
-        #self.actionExit.triggered.connect(QtWidgets.qApp.quit)
         
         self.retranslateUi(MainWindow)
-        #self.stackedWidget.setCurrentIndex(0)
         self.stackedWidget.setCurrentWidget(self.page)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         
         #Connections
-        
         self.feedButton.clicked.connect(self.onclicked)
         self.pushButton.clicked.connect(self.onclicked2)
         self.listWidget.itemClicked.connect(self.itemActivated_event)
         
         self.mi_pushButton.clicked.connect(self.onclicked3)
-        
         
         self.progressBarUpdate.connect(self.updateProgressBar)
         self.setVisibility.connect(self.updateVisibility)
@@ -275,19 +274,14 @@ class Ui_MainWindow(QtCore.QObject):
         MainWindow.setWindowTitle(_translate("MainWindow", "Autofeed"))
         MainWindow.setWindowIcon(QtGui.QIcon('blue.ico'))
         self.creditsGui.setToolTip(_translate("MainWindow", "Collaborative project for helping PIEAS students"))
-        #self.creditsGui.setStatusTip(_translate("MainWindow", "GUI-Programmer"))
-        self.creditsGui.setText(_translate("MainWindow", "Developed by Laughing-Kid & AKBAIG"))
+        self.creditsGui.setText(_translate("MainWindow", "Developed by Laughing-Kid & AKBAIG (Updated 2025)"))
         self.checkBox_2.setText(_translate("MainWindow", "Detailed"))
         self.feedButton.setText(_translate("MainWindow", "Start Auto-Feed"))
         self.checkBox.setText(_translate("MainWindow", "Regular"))
         self.title.setToolTip(_translate("MainWindow", "Automation for feeding your courses\' feedbacks with random gen numbers/manual input."))
         self.title.setStatusTip(_translate("MainWindow", "Name of the program"))
-        self.title.setText(_translate("MainWindow", "Autofeed v3.4.5 (PIEAS)"))
+        self.title.setText(_translate("MainWindow", "Autofeed v4.0 (PIEAS)"))
         self.regNo.setPlaceholderText(_translate("MainWindow", "Your Registration No."))
-        #self.credits.setToolTip(_translate("MainWindow", "Main coder"))
-        #self.credits.setStatusTip(_translate("MainWindow", "Coder"))
-        #self.credits.setText(_translate("MainWindow", "By Laughing-Kid"))
-        #self.progressLabel.setText(_translate("MainWindow", "Downloading Webdriver.. (this may take a while)"))
         send_msg(self, "special", "Downloading Webdriver.. (this may take a while)")
         self.access_code.setPlaceholderText(_translate("MainWindow", "Your Access Code"))
         self.feedButton.setEnabled(False)
@@ -319,8 +313,6 @@ class Ui_MainWindow(QtCore.QObject):
             if not self.actionManual_Input.isChecked():
                 self.actionManual_Input.setChecked(True)
         
-        
-                
     def onmanualchecked(self, checked):
         if checked:
             if self.actionRandom_Gen.isChecked():
@@ -330,9 +322,9 @@ class Ui_MainWindow(QtCore.QObject):
                 self.actionRandom_Gen.setChecked(True)
                 
     def onexit(self, checked):
-        
         global browser
-        browser.quit()
+        if browser:
+            browser.quit()
         QtCore.QCoreApplication.exit()
     
     @QtCore.pyqtSlot(int)
@@ -366,7 +358,6 @@ class Ui_MainWindow(QtCore.QObject):
         close = True
     
     def onOptionSelect(self):
-        _translate = QtCore.QCoreApplication.translate
         if self.comboBox.currentIndex() == 0:
             self.feedButton.setEnabled(False)
             send_msg(self, "notify", "Select your department")
@@ -388,15 +379,22 @@ class Ui_MainWindow(QtCore.QObject):
             Code = self.access_code.text()
             self.feedButton.setEnabled(False)
             self.progressBarUpdate.emit(0)
-            browser.get("http://111.68.99.200/SRA-n/")
-            skip_alert(browser, 10)
-            startLoginThread(self, Reg, Code, index)
-    
+            try:
+                browser.get("http://111.68.99.200/SRA-n/")
+                skip_alert(browser, 10)
+                startLoginThread(self, Reg, Code, index)
+            except Exception as e:
+                send_msg(self, "error", "Failed to connect to server.")
+
     def updatedepartments(self, MainWindow):
         send_msg(self, "notify", "Fetching departments..")
-        for o in get_departments(self):
-            self.comboBox.addItem(o.text) 
-        send_msg(self, "success", "Select your department")
+        options = get_departments(self)
+        if options:
+            for o in options:
+                self.comboBox.addItem(o.text) 
+            send_msg(self, "success", "Select your department")
+        else:
+            send_msg(self, "error", "Failed to fetch departments.")
             
         
 def startLoginThread(self, Reg, Code, index):
@@ -404,39 +402,32 @@ def startLoginThread(self, Reg, Code, index):
     loginThread.start()
     
 def run_driver(ui, MainWindow):   
-  
     global browser
     try:
-        browser = Edge(EdgeChromiumDriverManager().install())
-    except WebDriverException:
-        send_msg(ui, "error", "Edge not found, trying Google Chrome..")
+        # UPDATED: Use Service object for Selenium 4
+        service = ChromeService(ChromeDriverManager().install())
+        browser = webdriver.Chrome(service=service)
+        send_msg(ui, "success", "Opening Google Chrome..")
+    except Exception as e:
+        send_msg(ui, "error", f"Chrome failed: {str(e)}. Trying Edge...")
         try:
-            browser = Chrome(ChromeDriverManager().install())
-        except WebDriverException:
-            send_msg(ui, "error", "You need either of these browsers to run this program: Microsoft Edge or Chrome")
-        except ValueError:
-            send_msg(ui, "error", "You need either of these browsers to run this program: Microsoft Edge or Chrome")
-        else:
-            send_msg(ui, "success", "Opening Google Chrome..")
-    except ValueError:
-        send_msg(ui, "error", "Edge not found, trying Google Chrome..")
-        try:
-            browser = Chrome(ChromeDriverManager().install())
-        except WebDriverException:
-            send_msg(ui, "error", "You need either of these browsers to run this program: Microsoft Edge or Chrome")
-        except ValueError:
-            send_msg(ui, "error", "You need either of these browsers to run this program: Microsoft Edge or Chrome")
-        else:
-            send_msg(ui, "success", "Opening Google Chrome..")
-    else:
-        send_msg(ui, "success", "Opening Microsoft Edge..")
+             # UPDATED: Use Service object for Edge
+            service = EdgeService(EdgeChromiumDriverManager().install())
+            browser = webdriver.Edge(service=service)
+            send_msg(ui, "success", "Opening Microsoft Edge..")
+        except Exception as e2:
+             send_msg(ui, "error", "Could not open Chrome or Edge. Please install them.")
+             return
 
-    browser.get("http://111.68.99.200/SRA-n/")
-    skip_alert(browser, 10)
-    ui.updatedepartments(MainWindow)
-    MainWindow.activateWindow()
-    ui.comboBox.setEnabled(True)
-    ui.feedButton.setEnabled(True)
+    try:
+        browser.get("http://111.68.99.200/SRA-n/")
+        skip_alert(browser, 10)
+        ui.updatedepartments(MainWindow)
+        MainWindow.activateWindow()
+        ui.comboBox.setEnabled(True)
+        ui.feedButton.setEnabled(True)
+    except Exception as e:
+        send_msg(ui, "error", "Connection Error. Are you on PIEAS Network?")
 
 def skip_alert(browser, wait_time=3):
     try:
@@ -460,40 +451,51 @@ def send_msg(ui, type, msg):
         
     
 def get_departments(self):
-    
     if check_element(self, "ddlDegreeProg"):
-        select = Select(browser.find_element_by_id("ddlDegreeProg"))
+        # UPDATED: By.ID
+        select = Select(browser.find_element(By.ID, "ddlDegreeProg"))
         return select.options
     else:
-        browser.quit()
+        # browser.quit() # Better to not quit entirely, just return None
+        return None
             
 def login(studentId, studentPassword, dept_index, self):
-
-    #NOTE: I am continuously using find_by_element instead of storing it in a variable
-    #because our universities bad coding practices resest the entire DOM and makes the
-    #variable invalid
+    # UPDATED: By.ID and logic
     
-    #no check here because we already found the staleness of "ddlDegreeProg" before
-    select = Select(browser.find_element_by_id("ddlDegreeProg"))
-    select.select_by_index(dept_index)
+    # 1. Select Degree
+    try:
+        select = Select(browser.find_element(By.ID, "ddlDegreeProg"))
+        select.select_by_index(dept_index)
+    except Exception:
+        return
+
+    # 2. Enter Reg No
     if check_element(self, "txtRegNo"):
-        id = browser.find_element_by_id("txtRegNo")
-        id.clear()
-        id.send_keys(studentId)
+        id_box = browser.find_element(By.ID, "txtRegNo")
+        id_box.clear()
+        id_box.send_keys(studentId)
     else:
         return 
     
+    # 3. Enter Password
     if check_element(self, "a63542B5"):
-        password = browser.find_element_by_id("a63542B5")
+        password = browser.find_element(By.ID, "a63542B5")
         password.clear()
-        password.send_keys(studentPassword,Keys.RETURN)
+        password.send_keys(studentPassword, Keys.RETURN)
     else:
         return
+        
     skip_alert(browser, 10)
+    
+    # 4. Check Login Success
     try:
-        browser.find_element_by_id("cmdViewTranscript")
+        browser.find_element(By.ID, "cmdViewTranscript")
     except NoSuchElementException:
-        send_msg(self, "error", browser.find_element_by_id("lblMessage").text)
+        try:
+            msg = browser.find_element(By.ID, "lblMessage").text
+            send_msg(self, "error", msg)
+        except:
+            send_msg(self, "error", "Login Failed (Unknown Error)")
     else:
         send_msg(self, "notify", "Opening Menu..")
         loop = True
@@ -509,14 +511,18 @@ def login(studentId, studentPassword, dept_index, self):
                 send_msg(self, "error", "I can't seem to reach main menu. Make sure to clear your dues")
                 return
 
-        #(browser.find_element_by_id("cmdViewTranscript")).send_keys(Keys.RETURN)
         send_msg(self, "notify", "Opening Feedback Page..")
-        (browser.find_element_by_id("btnfeedback")).send_keys(Keys.RETURN)
+        try:
+            browser.find_element(By.ID, "btnfeedback").send_keys(Keys.RETURN)
+        except NoSuchElementException:
+            send_msg(self, "error", "Feedback Button not found!")
+            return
+
         if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
             try:
                 element = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse")))
             except TimeoutException:
-                send_msg(self, "error", "Unexcepted timeout, try again")
+                send_msg(self, "error", "Unexpected timeout, try again")
             else:
                 course_id = Select(element)
                 courses = course_id.options
@@ -536,34 +542,41 @@ def login(studentId, studentPassword, dept_index, self):
 def feedback(self, courses_len):
     
     completed = 0.0
-    portion = 100.0/(courses_len)
+    portion = 100.0/(courses_len) if courses_len > 0 else 0
     sub_portion = (portion/17.0)
     send_msg(self, "success", "Starting feedback-automation..")
-    #Loops through the entire feedback and sets a random value for every question
+    
     for name in range(courses_len):
         self.progressBarUpdate.emit(int(math.ceil(completed)))
         if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-            (Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse"))).select_by_index(name)
+            # UPDATED: By.ID
+            (Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse"))).select_by_index(name)
+            
             if check_element(self, "_ctl0_ContentPlaceHolder1_ddlContributor"):
-                contributor_id = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlContributor"))
+                contributor_id = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlContributor"))
                 contributors = contributor_id.options
                 num_of_cont = len(contributors)-1
+                
                 if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-                    _course = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse"))
+                    _course = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse"))
                     _course_name = _course.options[name].text
                     msg = "Generating regular feedback for " + _course_name + ".."
                     send_msg(self, "success", msg)
-                    #checking cookies
-                    dict = browser.get_cookie(_course_name)
+                    
+                    # Cookie Logic
+                    dict_cookie = browser.get_cookie(_course_name)
                     teacher = "None"
-                    if dict:
+                    
+                    if dict_cookie:
                         msg = "Contributor of course " + _course_name + " FOUND in cookies.."
                         send_msg(self, "success", msg)
-                        contributor_id.select_by_visible_text(dict.get("value"))
-                        teacher = dict.get("value")
+                        try:
+                            contributor_id.select_by_visible_text(dict_cookie.get("value"))
+                            teacher = dict_cookie.get("value")
+                        except:
+                            pass
                     else:
-                        if num_of_cont > 1:                            
-                            
+                        if num_of_cont > 1:                                    
                             self.openContributorWin()
                             self.updateContributorWin(_course_name, contributors)
                             close2Thread = threading.Thread(target=checkclose, args=(),daemon=True)
@@ -571,16 +584,16 @@ def feedback(self, courses_len):
                             close2Thread.join()
                             global Indez
                             if check_element(self, "_ctl0_ContentPlaceHolder1_ddlContributor"):
-                                contributor_id = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlContributor"))
+                                contributor_id = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlContributor"))
                                 contributors = contributor_id.options
                                 contributor_id.select_by_index(Indez)
                                 browser.add_cookie({"name": _course_name, "value": contributors[Indez].text})
                                 teacher = contributors[Indez].text
                             else:
                                 return 0
-                        else:     
+                        else:      
                             if check_element(self, "_ctl0_ContentPlaceHolder1_ddlContributor"):
-                                contributor_id = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlContributor"))
+                                contributor_id = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlContributor"))
                                 contributors = contributor_id.options
                                 contributor_id.select_by_index(0)
                                 browser.add_cookie({"name": _course_name, "value": contributors[0].text})
@@ -601,6 +614,7 @@ def feedback(self, courses_len):
                             Number = self.mi_spinBox.value()
                         else:
                             Number = random.randrange(1,6)
+                        
                         if (element:=check_element(self, score)):
                             element.clear()
                             element.send_keys(Number)
@@ -609,7 +623,7 @@ def feedback(self, courses_len):
                         completed += sub_portion
                         self.progressBarUpdate.emit(int(math.ceil(completed)))
                         
-                    #Writes the messages in the two text areas. You can change the messages
+                    # Comments Section
                     if (element:=check_element(self, "_ctl0_ContentPlaceHolder1_txtComments")):
                         element.send_keys("""No Comment""")
                     else:
@@ -618,19 +632,23 @@ def feedback(self, courses_len):
                         element.send_keys("""No Comment""")
                     else:
                         return 0
+                    
+                    # Submit
                     if (element:=check_element(self, "_ctl0_ContentPlaceHolder1_cmdSubmit")):
                         element.send_keys(Keys.RETURN)
                     else:
                         return 0
+                    
+                    # Reset / Next
                     if (element:=check_element(self, "_ctl0_ContentPlaceHolder1_cmdReset")):
                         try:
                             element.send_keys(Keys.RETURN)
                         except ElementNotInteractableException:
                             send_msg(self, "error", "Feedback already submitted")
-                            (browser.find_element_by_id("_ctl0_ContentPlaceHolder1_txtComments")).clear()
-                            (browser.find_element_by_id("_ctl0_ContentPlaceHolder1_txtCommentsCourse")).clear()
+                            (browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_txtComments")).clear()
+                            (browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_txtCommentsCourse")).clear()
                     else:
-                        return 0     
+                        return 0      
                 else:
                     return 0
             else:
@@ -648,29 +666,30 @@ def detailed_feedback(self, courses_len):
     
     completed = 0.0
     courses_prog = 25.0
-    portion = courses_prog/(courses_len)
+    portion = courses_prog/(courses_len) if courses_len > 0 else 0
     
     
     for name in range(courses_len):
         if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-            (Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse"))).select_by_index(name)
+            (Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse"))).select_by_index(name)
             if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-                _course = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse"))
+                _course = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse"))
                 c_name = _course.options[name].text
-                dict = browser.get_cookie(c_name)
+                dict_cookie = browser.get_cookie(c_name)
                 teacher = "None"
-                if dict:
+                if dict_cookie:
                     msg = "Contributor of course " + c_name + " FOUND in cookies.."
                     send_msg(self, "success", msg)
                 else:
+                    # Cookie logic for Detailed Feedback
                     if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-                        (Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse"))).select_by_index(name)
+                        (Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse"))).select_by_index(name)
                         if check_element(self, "_ctl0_ContentPlaceHolder1_ddlContributor"):
-                            contributor_id = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlContributor"))
+                            contributor_id = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlContributor"))
                             contributors = contributor_id.options
                             num_of_cont = len(contributors)-1
                             if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-                                _course = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse"))
+                                _course = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse"))
                                 _course_name = _course.options[name].text
                                 msg = "Saving contributor of " + _course_name + ".."
                                 send_msg(self, "success", msg)
@@ -691,7 +710,7 @@ def detailed_feedback(self, courses_len):
                                     closeThread.join()
                                     global Indez
                                     if check_element(self, "_ctl0_ContentPlaceHolder1_ddlContributor"):
-                                        contributor_id = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlContributor"))
+                                        contributor_id = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlContributor"))
                                         contributors = contributor_id.options
                                         contributor_id.select_by_index(Indez)
                                         browser.add_cookie({"name": _course_name, "value": contributors[Indez].text})
@@ -700,7 +719,7 @@ def detailed_feedback(self, courses_len):
                                     
                                 else:
                                     if check_element(self, "_ctl0_ContentPlaceHolder1_ddlContributor"):
-                                        contributor_id = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlContributor"))
+                                        contributor_id = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlContributor"))
                                         contributors = contributor_id.options
                                         contributor_id.select_by_index(0)
                                         browser.add_cookie({"name": _course_name, "value": contributors[0].text})
@@ -720,9 +739,9 @@ def detailed_feedback(self, courses_len):
             return
     
     if check_element(self, "_ctl0_ContentPlaceHolder1_cmdCourseEvaluation2"):
-        browser.find_element_by_id("_ctl0_ContentPlaceHolder1_cmdCourseEvaluation2").send_keys(Keys.RETURN)
+        browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_cmdCourseEvaluation2").send_keys(Keys.RETURN)
         if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-            _courses = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse")).options
+            _courses = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse")).options
             courseLength = len(_courses)
         else:
             return
@@ -739,26 +758,26 @@ def detailed_feedback(self, courses_len):
         sub_portion = portion/len(boxId)
         for i in range(courseLength):
             if check_element(self, "_ctl0_ContentPlaceHolder1_ddlCourse"):
-                c_name = Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse")).options[0].text
-                dict = browser.get_cookie(c_name)
+                c_name = Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse")).options[0].text
+                dict_cookie = browser.get_cookie(c_name)
             else:
                 return
-            if dict:
+            if dict_cookie:
                 if self.actionManual_Input.isChecked():
                     self.openMethodWin()
-                    self.updateMethodWin(c_name, dict.get("value"))
+                    self.updateMethodWin(c_name, dict_cookie.get("value"))
                     close2Thread = threading.Thread(target=checkclose, args=(),daemon=True)
                     close2Thread.start()
                     close2Thread.join()
                     
-                Select(browser.find_element_by_id("_ctl0_ContentPlaceHolder1_ddlCourse")).select_by_index(0)
-                browser.find_element_by_id("_ctl0_ContentPlaceHolder1_txtfnames").send_keys(dict.get("value"))  
+                Select(browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_ddlCourse")).select_by_index(0)
+                browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_txtfnames").send_keys(dict_cookie.get("value"))  
                 #notification
                 msg = "Generating detailed feedback for " + c_name + ".."
                 send_msg(self, "success", msg)
                 #generating rand feedback
                 if( check_element(self, "_ctl0_ContentPlaceHolder1_txtB1")):
-                    (browser.find_element_by_id("_ctl0_ContentPlaceHolder1_txtB1")).send_keys("5")
+                    (browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_txtB1")).send_keys("5")
                 else:
                     return
                 for run in range(len(boxId)):
@@ -777,11 +796,11 @@ def detailed_feedback(self, courses_len):
                         return
                 
                 if check_element(self, "_ctl0_ContentPlaceHolder1_cmdSubmit"):
-                    (browser.find_element_by_id("_ctl0_ContentPlaceHolder1_cmdSubmit")).send_keys(Keys.RETURN)
+                    (browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_cmdSubmit")).send_keys(Keys.RETURN)
                 else:
                     return
                 if check_element(self, "_ctl0_ContentPlaceHolder1_cmdReset"):
-                    (browser.find_element_by_id("_ctl0_ContentPlaceHolder1_cmdReset")).send_keys(Keys.RETURN)
+                    (browser.find_element(By.ID, "_ctl0_ContentPlaceHolder1_cmdReset")).send_keys(Keys.RETURN)
                 else:
                     return
             else:
@@ -794,9 +813,12 @@ def detailed_feedback(self, courses_len):
             
 def check_element(object, element_id):    
     try:
+        # UPDATED: By.ID
         element = WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, element_id)))
     except StaleElementReferenceException:
             send_msg(object, "error", "ERROR: [" + element_id + "]'s staleness not found. Try running the program again?")
+            return False
+    except TimeoutException:
             return False
     else:
         return element
@@ -818,5 +840,3 @@ if __name__ == "__main__":
     driverThread.start()
     MainWindow.show()
     sys.exit(app.exec_())
-	########## akbaig
-
